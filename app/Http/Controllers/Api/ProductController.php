@@ -1,0 +1,20 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Product;
+use Illuminate\Http\Request;
+
+class ProductController extends Controller
+{
+    public function index()
+    {
+        $products = Product::orderBy('product_name')->get();
+
+        return response()->json([
+            'message' => 'Products fetched successfully.',
+            'products' => $products,
+        ]);
+    }
+}
