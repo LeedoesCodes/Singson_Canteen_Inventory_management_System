@@ -11,29 +11,28 @@ class AuthController extends Controller
 {
     // Register user
     public function register(Request $request)
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:6',
-            'role' => 'nullable|in:admin,cashier,customer',
-        ]);
+{
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|email|unique:users,email',
+        'password' => 'required|min:6',
+    ]);
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => $request->password,
-            'role' => $request->role ?? 'customer',
-        ]);
+    $user = User::create([
+        'name' => $request->name,
+        'email' => $request->email,
+        'password' => $request->password,
+        'role' => 'customer',
+    ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+    $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json([
-            'message' => 'User registered successfully',
-            'user' => $user,
-            'token' => $token,
-        ], 201);
-    }
+    return response()->json([
+        'message' => 'User registered successfully',
+        'user' => $user,
+        'token' => $token,
+    ], 201);
+}
 
     // Login user
     public function login(Request $request)
