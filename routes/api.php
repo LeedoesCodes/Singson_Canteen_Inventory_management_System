@@ -7,8 +7,8 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\ReportsController;
-use App\Http\Controllers\Api\ProductController; // Import the controller
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\UserController; // Ensure this matches your folder structure
 use App\Models\User;
 use App\Models\Product;
 
@@ -34,11 +34,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Auth
     Route::post('/logout', [AuthController::class, 'logout']);
     
-    // Users
-    Route::get('/users', [UserController::class, 'index']);
+    // Users (Full CRUD Resource)
+    Route::apiResource('users', UserController::class);
     
     // Products (Administrative Actions)
-    // We omit 'index' because it's public above
     Route::apiResource('products', ProductController::class)->except(['index']);
 
     // Dashboard
@@ -61,6 +60,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Reports
     Route::prefix('reports')->group(function () {
+        // ... (existing report routes)
         Route::get('/sales', [ReportsController::class, 'sales']);
         Route::get('/best-sellers', [ReportsController::class, 'bestSellers']);
         Route::get('/category-breakdown', [ReportsController::class, 'categoryBreakdown']);
