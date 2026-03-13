@@ -8,7 +8,8 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\ReportsController;
 use App\Http\Controllers\Api\ProductController;
-use App\Http\Controllers\UserController; // Ensure this matches your folder structure
+use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\UserController;
 use App\Models\User;
 use App\Models\Product;
 
@@ -16,7 +17,7 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-// --- PUBLIC ROUTES ---
+// --- PUBLIC ROUTES (No Authentication Required) ---
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -27,18 +28,35 @@ Route::get('/products', function () {
     ]);
 });
 
+// Public Order Tracking
 Route::get('/orders/track/{orderNumber}', [OrderController::class, 'trackByNumber']);
 
-// --- PROTECTED ROUTES ---
+// Public Reports (for Landing Page)
+Route::get('/reports/public-best-sellers', [ReportsController::class, 'publicBestSellers']);
+
+// Public Reviews (for Landing Page)
+Route::get('/reviews', [ReviewController::class, 'index']);
+
+// --- PROTECTED ROUTES (Require Authentication) ---
 Route::middleware('auth:sanctum')->group(function () {
     // Auth
     Route::post('/logout', [AuthController::class, 'logout']);
     
-    // Users (Full CRUD Resource)
+    // Users (Full CRUD Resource - Admin Only)
     Route::apiResource('users', UserController::class);
     
-    // Products (Administrative Actions)
+    // Products (Administrative Actions - except index which is public)
     Route::apiResource('products', ProductController::class)->except(['index']);
+
+    // Customer Reviews
+    Route::post('/reviews', [ReviewController::class, 'store']);
+    Route::get('/my-reviews', [ReviewController::class, 'myReviews']);
+
+    // Admin Review Management
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/admin/reviews', [ReviewController::class, 'index']);
+        Route::patch('/admin/reviews/{review}/status', [ReviewController::class, 'updateStatus']);
+    });
 
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index']);
@@ -58,9 +76,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/low-stock', [InventoryController::class, 'lowStock']);
     });
 
-    // Reports
+    // Protected Reports (Admin/Cashier Only)
     Route::prefix('reports')->group(function () {
-        // ... (existing report routes)
         Route::get('/sales', [ReportsController::class, 'sales']);
         Route::get('/best-sellers', [ReportsController::class, 'bestSellers']);
         Route::get('/category-breakdown', [ReportsController::class, 'categoryBreakdown']);
@@ -68,10 +85,12 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 });
 
-// Test route
+// Test route (for development)
 Route::get('/token-test', function () {
     $user = User::first();
-    if (!$user) return response()->json(['error' => 'No user found'], 404);
+    if (!$user) {
+        return response()->json(['error' => 'No user found'], 404);
+    }
     $token = $user->createToken('test')->plainTextToken;
-    return $token;
+    return response()->json(['token' => $token]);
 });

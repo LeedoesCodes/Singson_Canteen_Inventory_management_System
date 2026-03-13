@@ -55,7 +55,7 @@ class ReportsController extends Controller
     }
 
     /**
-     * Get best-selling products.
+     * Get best-selling products (protected - for admin/cashier).
      */
     public function bestSellers(Request $request)
     {
@@ -66,6 +66,7 @@ class ReportsController extends Controller
 
         $from = $request->get('from', now()->subDays(30)->format('Y-m-d'));
         $to = $request->get('to', now()->format('Y-m-d'));
+        $limit = $request->get('limit', 10);
 
         $bestSellers = OrderItem::join('orders', 'orders.id', '=', 'order_items.order_id')
             ->join('products', 'products.id', '=', 'order_items.product_id')
@@ -75,17 +76,108 @@ class ReportsController extends Controller
             ->select(
                 'products.id',
                 'products.product_name as name',
+                'products.description',
+                'products.price',
+                'products.image',
                 'categories.name as category',
                 DB::raw('SUM(order_items.quantity) as quantity'),
                 DB::raw('SUM(order_items.quantity * order_items.price) as revenue')
             )
-            ->groupBy('products.id', 'products.product_name', 'categories.name')
+            ->groupBy(
+                'products.id',
+                'products.product_name',
+                'products.description',
+                'products.price',
+                'products.image',
+                'categories.name'
+            )
             ->orderByDesc('quantity')
-            ->limit(10)
+            ->limit($limit)
             ->get();
+
+        // Add full image URL to each product
+        $bestSellers->each(function ($product) {
+            if ($product->image) {
+                $product->image_url = url('storage/' . $product->image);
+            }
+        });
 
         return response()->json([
             'products' => $bestSellers,
+        ]);
+    }
+
+    /**
+     * Public best-selling products (no auth required for landing page).
+     */
+    public function publicBestSellers(Request $request)
+    {
+        $limit = $request->get('limit', 3);
+        
+        $bestSellers = OrderItem::join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->join('products', 'products.id', '=', 'order_items.product_id')
+            ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
+            ->whereIn('orders.status', ['completed', 'ready'])
+            ->select(
+                'products.id',
+                'products.product_name as name',
+                'products.description',
+                'products.price',
+                'products.image',
+                'categories.name as category',
+                DB::raw('SUM(order_items.quantity) as quantity'),
+                DB::raw('SUM(order_items.quantity * order_items.price) as revenue')
+            )
+            ->groupBy(
+                'products.id',
+                'products.product_name',
+                'products.description',
+                'products.price',
+                'products.image',
+                'categories.name'
+            )
+            ->orderByDesc('quantity')
+            ->limit($limit)
+            ->get();
+
+        // Add full image URL to each product
+        $bestSellers->each(function ($product) {
+            if ($product->image) {
+                $product->image_url = url('storage/' . $product->image);
+            }
+        });
+
+        // If no best sellers yet, return some random products as fallback
+        if ($bestSellers->isEmpty()) {
+            $fallbackProducts = Product::with('category')
+                ->where('is_available', true)
+                ->inRandomOrder()
+                ->limit($limit)
+                ->get()
+                ->map(function ($product) {
+                    $data = [
+                        'id' => $product->id,
+                        'name' => $product->product_name,
+                        'description' => $product->description ?? 'A customer favorite!',
+                        'price' => $product->price,
+                        'image' => $product->image,
+                        'category' => $product->category->name ?? 'Uncategorized',
+                        'quantity' => 0,
+                        'revenue' => 0,
+                    ];
+                    if ($product->image) {
+                        $data['image_url'] = url('storage/' . $product->image);
+                    }
+                    return $data;
+                });
+            
+            return response()->json([
+                'products' => $fallbackProducts
+            ]);
+        }
+
+        return response()->json([
+            'products' => $bestSellers
         ]);
     }
 
@@ -102,7 +194,6 @@ class ReportsController extends Controller
         $from = $request->get('from', now()->subDays(30)->format('Y-m-d'));
         $to = $request->get('to', now()->format('Y-m-d'));
 
-        // Aggregate sales per category
         $categories = DB::table('categories')
             ->join('products', 'categories.id', '=', 'products.category_id')
             ->join('order_items', 'products.id', '=', 'order_items.product_id')
